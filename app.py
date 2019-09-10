@@ -1,14 +1,14 @@
 from flask import Flask
-from flask_cors import CORS, cross_origin, jsonify
+from flask_cors import CORS, cross_origin
 from flask import render_template,flash,redirect,request,url_for,send_from_directory,Response
-from flask import after_this_request,make_response
+from flask import after_this_request,make_response,jsonify
 import subprocess
 import sys
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from flask import send_file
 import os
-from downloader import queryDownload, searchVideos
+from downloader import queryDownload, searchVideos, queryDownloadWithSelection
 import argparse
 import concurrent
 from difflib import get_close_matches
@@ -21,7 +21,26 @@ uploads = os.path.join(app.root_path,app.config['UPLOAD_FOLDER'])
 
 def searchAndDownload(processed_text,partial_filename,uploadFolder):
     filenames = os.listdir(uploadFolder)
-    return get_close_matches(partial_filename,filenames)[0]
+    firstMatch = get_close_matches(partial_filename,filenames)
+    if len(firstMatch) > 0:
+        return firstMatch[0]
+    if len(get_close_matches(processed_text,filenames)) > 0:
+        return get_close_matches(processed_text)[0]
+
+    for filename in filenames:
+        if partial_filename in filename:    
+            print("Filename returned is",filename)
+            return filename
+        if partial_filename.upper() in filename.upgutper():
+            print("Filename returned is",filename)
+            return filename
+        if processed_text in filename.upper():
+            print("Filename returned is",filename)
+            return filename
+        if partial_filename.split('|')[0].upper() in filename.upper():
+            print("Filename returned is",filename, "block is split")
+            return filename
+
 
 def song_api_mulitple(songname):
     partial_filename = queryDownload(songname)
@@ -41,7 +60,14 @@ def song_api_name(songname):
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
 
-
+@app.route('/songDownload/',methods=['POST'])
+def song_api_download():
+    data = request.get_json()
+    title,video_link,selection = data['title'],data['video_link'],data['selection']
+    songTitle = queryDownloadWithSelection(title,video_link,selection)
+    return send_from_directory(directory=uploads,filename=searchAndDownload(songTitle,songTitle,uploads),as_attachment=True)
+    # response.headers['Access-Control-Allow-Origin'] = '*'
+    # return response
 
 @app.route('/song/<songname>')
 def song_api(songname):

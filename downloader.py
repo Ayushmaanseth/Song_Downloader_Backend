@@ -81,12 +81,11 @@ def queryDownload(song_name):
   with youtube_dl.YoutubeDL(ydl_opts) as ydl:
     ydl.download(['https://www.youtube.com' + video_link])
     
-  return title.decode()
+  return title
 
   
-def queryDownloadWithSelection(song_name,selection):
-  available = searchVideos("{} lyrics".format(song_name))
-  (title,video_link) = available
+def queryDownloadWithSelection(title,video_link,selection):
+  print(title,video_link,selection)
   ydl_opts_with_selection = {
     'format': 'bestaudio/best',
     'outtmpl':'Songs/%(title)s.%(ext)s',
@@ -101,8 +100,7 @@ def queryDownloadWithSelection(song_name,selection):
 
   with youtube_dl.YoutubeDL(ydl_opts_with_selection) as ydl:
     ydl.download(['https://www.youtube.com' + video_link])
-    
-  return title.decode()
+  return title
 
 
 # Main function just for testing purposes
