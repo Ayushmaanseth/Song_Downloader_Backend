@@ -1,0 +1,7 @@
+gunicorn
+requests
+bs4
+argparse
+youtube-dl
+ffmpeg
+flask
