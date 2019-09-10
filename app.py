@@ -1,35 +1,27 @@
 from flask import Flask
+from flask_cors import CORS, cross_origin, jsonify
 from flask import render_template,flash,redirect,request,url_for,send_from_directory,Response
-from flask import after_this_request
+from flask import after_this_request,make_response
 import subprocess
 import sys
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from flask import send_file
 import os
-from downloader import queryDownload
+from downloader import queryDownload, searchVideos
 import argparse
-import zipfile
 import concurrent
-# UPLOAD_FOLDER = '/mnt/c/Users/Ayushmaan/Desktop/Song_Downloader/Songs'
-UPLOAD_FOLDER = os.path.join(os.getcwd(),'Songs')
+from difflib import get_close_matches
 
+UPLOAD_FOLDER = os.path.join(os.getcwd(),'Songs')
 app = Flask(__name__)
 #app.config.from_object(Config)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 uploads = os.path.join(app.root_path,app.config['UPLOAD_FOLDER'])
 
-def searchAndDownload(processed_text,partial_filename,UPLOAD_FOLDER):
-    for filename in os.listdir(UPLOAD_FOLDER):
-        if partial_filename in filename:    
-            print("Filename returned is",filename)
-            return filename
-        if partial_filename.upper() in filename.upper():
-            print("Filename returned is",filename)
-            return filename
-        if processed_text in filename.upper():
-            print("Filename returned is",filename)
-            return filename
+def searchAndDownload(processed_text,partial_filename,uploadFolder):
+    filenames = os.listdir(uploadFolder)
+    return get_close_matches(partial_filename,filenames)[0]
 
 def song_api_mulitple(songname):
     partial_filename = queryDownload(songname)
@@ -37,10 +29,18 @@ def song_api_mulitple(songname):
     song_name = "{}.mp3".format(partial_filename)
     if song_name not in os.listdir(UPLOAD_FOLDER):
         print("HERE PLEASE HELP")
-        return searchAndDownload(songname,partial_filename,UPLOAD_FOLDER)
+        return searchAndDownload(songname,partial_filename,uploads)
     else:
         print("NO HELP")
         return song_name
+
+@app.route('/songDetail/<songname>')
+def song_api_name(songname):
+    (title,video_link) = searchVideos("{} lyrics".format(songname))
+    response = jsonify(title)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
 
 
 @app.route('/song/<songname>')
@@ -50,10 +50,15 @@ def song_api(songname):
     song_name = "{}.mp3".format(partial_filename)
     if song_name not in os.listdir(UPLOAD_FOLDER):
         print("HERE PLEASE HELP")
-        return send_from_directory(directory=uploads,filename=searchAndDownload(songname,partial_filename,UPLOAD_FOLDER),as_attachment=True)
+        response = send_from_directory(directory=uploads,filename=searchAndDownload(songname,partial_filename,uploads),as_attachment=True)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
     else:
         print("NO HELP")
-        return send_from_directory(directory=uploads,filename=song_name,as_attachment=True)
+        response = send_from_directory(directory=uploads,filename=song_name,as_attachment=True)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
 
 @app.route('/file/<filename>')
 def file_api(filename):
@@ -69,12 +74,10 @@ def my_form_post():
     processed_text = text.upper()
     download_text = processed_text
     return song_api(download_text)
-    #print(processed_text)
 
 @app.route('/multiple')
 def multiple():
     return render_template('multiple.html')
-
 
     
 @app.route('/multiple',methods=['POST'])
@@ -86,21 +89,6 @@ def multipleDownloads():
     executor = concurrent.futures.ProcessPoolExecutor(4)
     futures = [executor.submit(song_api_mulitple, item) for item in processed_text]
     concurrent.futures.wait(futures)
-    # zipf = zipfile.ZipFile('Songs.zip','w')
-    # for file in processed_text:
-    #     file = file.upper()
-    #     partial_filename = queryDownload(file)
-    #     filename = searchAndDownload(file,partial_filename,UPLOAD_FOLDER)
-    #     filepath = os.path.join(UPLOAD_FOLDER,filename)
-    #     zipf.write(filepath)
-    # zipf.close()
-
-    # return send_file('Songs.zip',
-    #                 mimetype='zip',
-    #                 attachment_filename='Songs.zip',
-    #                 as_attachment=True)
-    # send_from_directory(directory=uploads,filename="{}.mp3".format(processed_text[0]),as_attachment=True)
-
     return render_template("index.html")
 
 
